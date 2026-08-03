@@ -79,7 +79,7 @@ export default function Table({
                       <a 
                         className="btn btn-primary" 
                         style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none' }}
-                        href={paper.download_url.replace('raw.githubusercontent.com/Shabber10/ALL-PYQ-Papers/main', 'cdn.jsdelivr.net/gh/Shabber10/ALL-PYQ-Papers@main')}
+                        href={parseFloat(paper.size_mb) >= 20 ? paper.download_url.replace('raw.githubusercontent.com', 'raw.githack.com') : paper.download_url.replace('raw.githubusercontent.com/Shabber10/ALL-PYQ-Papers/main', 'cdn.jsdelivr.net/gh/Shabber10/ALL-PYQ-Papers@main')}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}

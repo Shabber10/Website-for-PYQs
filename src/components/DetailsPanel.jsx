@@ -56,7 +56,7 @@ export default function DetailsPanel({ paper, onClose }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
           <a 
             className="btn btn-primary" 
-            href={paper.download_url.replace('raw.githubusercontent.com/Shabber10/ALL-PYQ-Papers/main', 'cdn.jsdelivr.net/gh/Shabber10/ALL-PYQ-Papers@main')} 
+            href={parseFloat(paper.size_mb) >= 20 ? paper.download_url.replace('raw.githubusercontent.com', 'raw.githack.com') : paper.download_url.replace('raw.githubusercontent.com/Shabber10/ALL-PYQ-Papers/main', 'cdn.jsdelivr.net/gh/Shabber10/ALL-PYQ-Papers@main')} 
             target="_blank" 
             rel="noopener noreferrer"
             style={{ width: '100%', textDecoration: 'none' }}
