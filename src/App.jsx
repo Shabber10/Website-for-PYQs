@@ -3,7 +3,11 @@ import Header from './components/Header'
 import KPICards from './components/KPICards'
 import FilterBar from './components/FilterBar'
 import Table from './components/Table'
+import GridCards from './components/GridCards'
 import DetailsPanel from './components/DetailsPanel'
+import PdfModal from './components/PdfModal'
+import RequestPaperModal from './components/RequestPaperModal'
+import AdminRequestsModal from './components/AdminRequestsModal'
 import papersData from './data/papers.json'
 
 export default function App() {
@@ -15,29 +19,65 @@ export default function App() {
     year: ''
   })
   const [selectedPaper, setSelectedPaper] = useState(null)
+  const [pdfModalPaper, setPdfModalPaper] = useState(null)
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false)
+  const [requestInitialQuery, setRequestInitialQuery] = useState('')
+  const [requestCount, setRequestCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 20
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('pyq_view_mode') || 'grid'
+  })
+  const [sortBy, setSortBy] = useState('year-desc')
+  const [showOnlyBookmarked, setShowOnlyBookmarked] = useState(false)
+  const [bookmarkedIds, setBookmarkedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pyq_bookmarks')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
 
-  // 1. Static counts for Overall Repository scale (KPI cards)
-  const overallStats = useMemo(() => {
-    let total = papersData.length
-    let upsc = 0
-    let competitive = 0
-    let boards = 0
+  // Load initial request count from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('pyq_paper_requests')
+      if (saved) {
+        setRequestCount(JSON.parse(saved).length)
+      }
+    } catch {
+      // ignore
+    }
+  }, [isRequestModalOpen])
 
-    papersData.forEach(p => {
-      if (p.category === 'UPSC') upsc++
-      else if (p.category === 'Boards') boards++
-      else if (p.category === 'JEE' || p.category === 'NEET') competitive++
-    })
+  const itemsPerPage = viewMode === 'grid' ? 12 : 20
 
-    return { total, upsc, competitive, boards }
-  }, [])
+  const handleOpenRequestModal = (query = '') => {
+    setRequestInitialQuery(query)
+    setIsRequestModalOpen(true)
+  }
 
-  // Reset pagination when any filter changes
+  // Persist viewMode
+  useEffect(() => {
+    localStorage.setItem('pyq_view_mode', viewMode)
+  }, [viewMode])
+
+  // Persist bookmarks
+  useEffect(() => {
+    localStorage.setItem('pyq_bookmarks', JSON.stringify(bookmarkedIds))
+  }, [bookmarkedIds])
+
+  const handleToggleBookmark = (id) => {
+    setBookmarkedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  // Reset pagination when any filter or view mode changes
   useEffect(() => {
     setCurrentPage(1)
-  }, [filters])
+  }, [filters, viewMode, showOnlyBookmarked, sortBy])
 
   // 2. Extract available subcategories based on chosen category
   const availableSubcategories = useMemo(() => {
@@ -68,7 +108,6 @@ export default function App() {
   const handleFilterChange = (key, value) => {
     setFilters(prev => {
       const next = { ...prev, [key]: value }
-      // If category is cleared, also clear subcategory
       if (key === 'category') {
         next.subcategory = ''
       }
@@ -84,15 +123,20 @@ export default function App() {
       subcategory: '',
       year: ''
     })
+    setShowOnlyBookmarked(false)
     setSelectedPaper(null)
     setCurrentPage(1)
+    setSortBy('year-desc')
   }
 
-  // 4. Perform in-memory filtering of papers
+  // 4. Perform in-memory filtering and sorting of papers
   const filteredPapers = useMemo(() => {
     const query = filters.search.trim().toLowerCase()
     
-    return papersData.filter(paper => {
+    let result = papersData.filter(paper => {
+      // Bookmarked filter
+      if (showOnlyBookmarked && !bookmarkedIds.includes(paper.id)) return false
+
       // Category filter
       if (filters.category && paper.category !== filters.category) return false
       
@@ -115,36 +159,92 @@ export default function App() {
       
       return true
     })
-  }, [filters])
+
+    // Sort result
+    return result.sort((a, b) => {
+      if (sortBy === 'year-desc') return (b.year || '').localeCompare(a.year || '')
+      if (sortBy === 'year-asc') return (a.year || '').localeCompare(b.year || '')
+      if (sortBy === 'subject-asc') return (a.subject || '').localeCompare(b.subject || '')
+      if (sortBy === 'size-desc') return (parseFloat(b.size_mb) || 0) - (parseFloat(a.size_mb) || 0)
+      return 0
+    })
+  }, [filters, showOnlyBookmarked, bookmarkedIds, sortBy])
+
+  // 1. Static counts for Overall Repository scale (KPI cards)
+  const overallStats = useMemo(() => {
+    let total = papersData.length
+    let upsc = 0
+    let competitive = 0
+    let boards = 0
+
+    papersData.forEach(p => {
+      if (p.category === 'UPSC') upsc++
+      else if (p.category === 'Boards') boards++
+      else if (p.category === 'JEE' || p.category === 'NEET') competitive++
+    })
+
+    return { total, upsc, competitive, boards }
+  }, [])
 
   return (
     <div className="app-container">
-      {/* Header with Title and Dark Mode Toggle */}
-      <Header />
+      {/* Header with Title, Navbar Search Bar and Dark Mode Toggle */}
+      <Header 
+        search={filters.search}
+        onSearchChange={(val) => handleFilterChange('search', val)}
+        onOpenRequestModal={handleOpenRequestModal}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
+        requestCount={requestCount}
+      />
       
-      {/* Overview Stat Cards */}
-      <KPICards stats={overallStats} />
-      
-      {/* Search and Dropdown Filter Row */}
+      {/* Search, Dropdowns, Chips & View Switcher */}
       <FilterBar 
         filters={filters}
         onFilterChange={handleFilterChange}
         onReset={handleReset}
         availableSubcategories={availableSubcategories}
         availableYears={availableYears}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        bookmarkedCount={bookmarkedIds.length}
+        showOnlyBookmarked={showOnlyBookmarked}
+        onToggleShowOnlyBookmarked={setShowOnlyBookmarked}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
       />
       
-      {/* Main Layout Area: Grid splits if details panel is visible */}
+      {/* Main Layout Area: Grid or Table with Side Drawer details panel */}
       <main className="main-layout">
         <div className={`table-container-wrapper ${selectedPaper ? 'collapsed' : ''}`}>
-          <Table 
-            papers={filteredPapers}
-            selectedPaper={selectedPaper}
-            onSelectPaper={setSelectedPaper}
-            currentPage={currentPage}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-          />
+          {viewMode === 'grid' ? (
+            <GridCards 
+              papers={filteredPapers}
+              selectedPaper={selectedPaper}
+              onSelectPaper={setSelectedPaper}
+              bookmarkedIds={bookmarkedIds}
+              onToggleBookmark={handleToggleBookmark}
+              onOpenPdfModal={setPdfModalPaper}
+              onOpenRequestModal={handleOpenRequestModal}
+              searchQuery={filters.search}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+            />
+          ) : (
+            <Table 
+              papers={filteredPapers}
+              selectedPaper={selectedPaper}
+              onSelectPaper={setSelectedPaper}
+              bookmarkedIds={bookmarkedIds}
+              onToggleBookmark={handleToggleBookmark}
+              onOpenPdfModal={setPdfModalPaper}
+              onOpenRequestModal={handleOpenRequestModal}
+              searchQuery={filters.search}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+            />
+          )}
         </div>
         
         {/* Right drawer details panel */}
@@ -152,9 +252,46 @@ export default function App() {
           <DetailsPanel 
             paper={selectedPaper}
             onClose={() => setSelectedPaper(null)}
+            onOpenPdfModal={setPdfModalPaper}
+            isBookmarked={bookmarkedIds.includes(selectedPaper.id)}
+            onToggleBookmark={handleToggleBookmark}
           />
         )}
       </main>
+
+      {/* Footer Section with Archive Stats Overview */}
+      <footer className="app-footer">
+        <div className="footer-title-row">
+          <h3 className="footer-title">Repository Archive Breakdown</h3>
+          <span className="footer-subtitle">Live Overview of Indexing Statistics</span>
+        </div>
+        <KPICards stats={overallStats} />
+        <div className="footer-bottom-row">
+          <p>© {new Date().getFullYear()} PYQ Portal • Built with React & Vite</p>
+        </div>
+      </footer>
+
+      {/* In-App PDF Preview Modal */}
+      {pdfModalPaper && (
+        <PdfModal 
+          paper={pdfModalPaper}
+          onClose={() => setPdfModalPaper(null)}
+        />
+      )}
+
+      {/* Request Paper Modal */}
+      <RequestPaperModal 
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        initialQuery={requestInitialQuery}
+      />
+
+      {/* Admin Request Management Modal */}
+      <AdminRequestsModal 
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        onRequestCountChange={setRequestCount}
+      />
     </div>
   )
 }

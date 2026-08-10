@@ -5,9 +5,10 @@ export default function ThemeToggle() {
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark') || 
-             localStorage.getItem('theme') === 'dark'
+             localStorage.getItem('theme') === 'dark' ||
+             (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
     }
-    return false
+    return true
   })
 
   useEffect(() => {
@@ -25,9 +26,14 @@ export default function ThemeToggle() {
       className="theme-toggle-btn"
       onClick={() => setIsDark(!isDark)}
       aria-label="Toggle dark mode"
-      title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+      title={isDark ? "Switch to macOS Luminous Clay Light Mode" : "Switch to visionOS Deep Space Dark Mode"}
     >
-      {isDark ? <Sun size={18} /> : <Moon size={18} />}
+      {isDark ? (
+        <Sun size={20} style={{ color: 'var(--apple-orange)', filter: 'drop-shadow(0 0 8px var(--apple-orange-glow))' }} />
+      ) : (
+        <Moon size={20} style={{ color: 'var(--apple-indigo)', filter: 'drop-shadow(0 0 8px var(--apple-indigo-glow))' }} />
+      )}
     </button>
   )
 }
+
