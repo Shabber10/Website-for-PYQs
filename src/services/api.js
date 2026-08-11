@@ -47,6 +47,22 @@ export async function updatePdfStatus(id, status) {
   return data
 }
 
+export async function adminLogin(username, password) {
+  const response = await fetch(`${API_BASE}/admin/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password })
+  })
+
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Invalid username or password.')
+  }
+  return data
+}
+
 export async function deletePdf(id) {
   const response = await fetch(`${API_BASE}/pdfs/${id}`, {
     method: 'DELETE'
@@ -58,3 +74,4 @@ export async function deletePdf(id) {
   }
   return data
 }
+

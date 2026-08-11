@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { X, ShieldAlert, CheckCircle2, XCircle, Eye, RefreshCw, Clock, Inbox, Mail, Calendar, FileText, Loader2 } from 'lucide-react'
+import { X, ShieldAlert, CheckCircle2, XCircle, Eye, RefreshCw, Clock, Inbox, Mail, Calendar, FileText, Loader2, LogOut } from 'lucide-react'
 import { fetchPdfs, updatePdfStatus, deletePdf } from '../services/api'
 
-export default function AdminApprovalModal({ isOpen, onClose, onOpenPdfModal, onStatusChange }) {
+export default function AdminApprovalModal({ isOpen, onClose, onOpenPdfModal, onStatusChange, onLogout }) {
   const [pendingList, setPendingList] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [processingId, setProcessingId] = useState(null)
@@ -98,6 +98,18 @@ export default function AdminApprovalModal({ isOpen, onClose, onOpenPdfModal, on
             <button className="btn btn-secondary" style={{ padding: '0.35rem 0.65rem' }} onClick={loadPendingSubmissions} title="Refresh Submissions">
               <RefreshCw size={14} className={isLoading ? 'spinner' : ''} />
             </button>
+
+            {onLogout && (
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.35rem 0.65rem', color: 'var(--apple-pink)' }}
+                onClick={onLogout}
+                title="Logout Admin Session"
+              >
+                <LogOut size={14} /> Logout
+              </button>
+            )}
+
             <button className="close-btn" onClick={onClose} title="Close Modal">
               <X size={18} />
             </button>

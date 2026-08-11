@@ -1,8 +1,8 @@
 import React from 'react'
-import { BookOpen, Sparkles, ShieldCheck, Search, X, UploadCloud, ShieldAlert } from 'lucide-react'
+import { BookOpen, Sparkles, ShieldCheck, Search, X, UploadCloud } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 
-export default function Header({ search, onSearchChange, onOpenUploadModal, onOpenAdminModal, pendingCount = 0 }) {
+export default function Header({ search, onSearchChange, onOpenUploadModal }) {
   return (
     <header className="header">
       <div className="header-left">
@@ -51,31 +51,6 @@ export default function Header({ search, onSearchChange, onOpenUploadModal, onOp
           <span className="btn-request-label">Upload PDF</span>
         </button>
 
-        <button
-          className="btn btn-secondary btn-request-header"
-          onClick={onOpenAdminModal}
-          title="Admin Panel: Review & Approve Submissions"
-          style={{ position: 'relative' }}
-        >
-          <ShieldAlert size={15} style={{ color: 'var(--apple-purple)' }} />
-          <span className="btn-request-label">Admin Review</span>
-          {pendingCount > 0 && (
-            <span
-              style={{
-                background: 'var(--apple-purple)',
-                color: '#fff',
-                fontSize: '0.65rem',
-                fontWeight: 'bold',
-                borderRadius: '10px',
-                padding: '0.05rem 0.35rem',
-                marginLeft: '0.15rem'
-              }}
-            >
-              {pendingCount}
-            </span>
-          )}
-        </button>
-
         <div className="repo-badge-chip">
           <ShieldCheck size={13} style={{ color: 'var(--apple-green)' }} />
           <span>v1.0 Main</span>
@@ -85,5 +60,6 @@ export default function Header({ search, onSearchChange, onOpenUploadModal, onOp
     </header>
   )
 }
+
 
 

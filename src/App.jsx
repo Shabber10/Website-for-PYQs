@@ -7,6 +7,7 @@ import GridCards from './components/GridCards'
 import DetailsPanel from './components/DetailsPanel'
 import PdfModal from './components/PdfModal'
 import UploadPdfModal from './components/UploadPdfModal'
+import AdminLoginModal from './components/AdminLoginModal'
 import AdminApprovalModal from './components/AdminApprovalModal'
 import papersData from './data/papers.json'
 import { fetchPdfs } from './services/api'
@@ -22,7 +23,11 @@ export default function App() {
   const [selectedPaper, setSelectedPaper] = useState(null)
   const [pdfModalPaper, setPdfModalPaper] = useState(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false)
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false)
+  const [isAdminApprovalModalOpen, setIsAdminApprovalModalOpen] = useState(false)
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    return Boolean(sessionStorage.getItem('admin_token'))
+  })
   const [serverPapers, setServerPapers] = useState([])
   const [pendingCount, setPendingCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
@@ -217,15 +222,34 @@ export default function App() {
     loadPendingCount()
   }
 
+  // Secret admin link click handler in footer
+  const handleSecretAdminClick = () => {
+    if (isAdminAuthenticated) {
+      setIsAdminApprovalModalOpen(true)
+    } else {
+      setIsAdminLoginModalOpen(true)
+    }
+  }
+
+  const handleAdminLoginSuccess = () => {
+    setIsAdminAuthenticated(true)
+    setIsAdminLoginModalOpen(false)
+    setIsAdminApprovalModalOpen(true)
+  }
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('admin_token')
+    setIsAdminAuthenticated(false)
+    setIsAdminApprovalModalOpen(false)
+  }
+
   return (
     <div className="app-container">
-      {/* Header with Title, Search Bar, Upload PDF Action & Admin Review */}
+      {/* Header with Title, Search Bar & Upload PDF Action */}
       <Header 
         search={filters.search}
         onSearchChange={(val) => handleFilterChange('search', val)}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
-        onOpenAdminModal={() => setIsAdminModalOpen(true)}
-        pendingCount={pendingCount}
       />
       
       {/* Search, Dropdowns, Chips & View Switcher */}
@@ -298,7 +322,24 @@ export default function App() {
         </div>
         <KPICards stats={overallStats} />
         <div className="footer-bottom-row">
-          <p>© {new Date().getFullYear()} PYQ Portal • Built with React & Vite</p>
+          <p>
+            © {new Date().getFullYear()} PYQ Portal • Built by{' '}
+            <span
+              onClick={handleSecretAdminClick}
+              title="Secret Admin Access"
+              style={{
+                cursor: 'pointer',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                transition: 'color 0.2s ease',
+                borderBottom: '1px dotted var(--text-muted)'
+              }}
+              onMouseEnter={(e) => (e.target.style.color = 'var(--apple-purple)')}
+              onMouseLeave={(e) => (e.target.style.color = 'var(--text-primary)')}
+            >
+              Shabber
+            </span>
+          </p>
         </div>
       </footer>
 
@@ -317,12 +358,20 @@ export default function App() {
         onUploadSuccess={handleUploadSuccess}
       />
 
+      {/* Secret Admin Authentication Login Modal */}
+      <AdminLoginModal
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
+        onLoginSuccess={handleAdminLoginSuccess}
+      />
+
       {/* Admin Approval Queue Modal */}
       <AdminApprovalModal
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
+        isOpen={isAdminApprovalModalOpen}
+        onClose={() => setIsAdminApprovalModalOpen(false)}
         onOpenPdfModal={setPdfModalPaper}
         onStatusChange={handleAdminStatusChange}
+        onLogout={handleAdminLogout}
       />
     </div>
   )

@@ -6,6 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import dns from 'dns'
 import pdfRoutes from './routes/pdfRoutes.js'
+import adminRoutes from './routes/adminRoutes.js'
 
 // Fix Node.js DNS querySrv ETIMEOUT issue on Windows local networks
 try {
@@ -29,6 +30,7 @@ app.use(express.urlencoded({ extended: true }))
 
 // API Routes
 app.use('/api/pdfs', pdfRoutes)
+app.use('/api/admin', adminRoutes)
 
 // Health Check Endpoint for Render
 app.get('/api/health', (req, res) => {
