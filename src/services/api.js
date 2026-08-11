@@ -47,6 +47,22 @@ export async function updatePdfStatus(id, status) {
   return data
 }
 
+export async function updatePdfDetails(id, updatedFields) {
+  const response = await fetch(`${API_BASE}/pdfs/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(updatedFields)
+  })
+
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Failed to update PDF details.')
+  }
+  return data
+}
+
 export async function adminLogin(username, password) {
   const response = await fetch(`${API_BASE}/admin/login`, {
     method: 'POST',

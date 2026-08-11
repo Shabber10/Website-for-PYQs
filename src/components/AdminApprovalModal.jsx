@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from 'react'
-import { X, ShieldAlert, CheckCircle2, XCircle, Eye, RefreshCw, Clock, Inbox, Mail, Calendar, FileText, Loader2, LogOut } from 'lucide-react'
-import { fetchPdfs, updatePdfStatus, deletePdf } from '../services/api'
+import { X, ShieldAlert, CheckCircle2, XCircle, Eye, RefreshCw, Clock, Inbox, Mail, Calendar, FileText, Loader2, LogOut, Pencil, Save, Check } from 'lucide-react'
+import { fetchPdfs, updatePdfStatus, updatePdfDetails, deletePdf } from '../services/api'
 
 export default function AdminApprovalModal({ isOpen, onClose, onOpenPdfModal, onStatusChange, onLogout }) {
   const [pendingList, setPendingList] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [processingId, setProcessingId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
+
+  // Editing state
+  const [editingPaperId, setEditingPaperId] = useState(null)
+  const [editFormData, setEditFormData] = useState({
+    subject: '',
+    category: 'UPSC',
+    subcategory: '',
+    year: '',
+    filename: ''
+  })
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   const loadPendingSubmissions = async () => {
     setIsLoading(true)
@@ -32,6 +43,44 @@ export default function AdminApprovalModal({ isOpen, onClose, onOpenPdfModal, on
   }, [isOpen])
 
   if (!isOpen) return null
+
+  const handleStartEdit = (paper) => {
+    setEditingPaperId(paper.id)
+    setEditFormData({
+      subject: paper.subject || '',
+      category: paper.category || 'UPSC',
+      subcategory: paper.subcategory || '',
+      year: paper.year || '',
+      filename: paper.filename || ''
+    })
+  }
+
+  const handleCancelEdit = () => {
+    setEditingPaperId(null)
+  }
+
+  const handleSaveEdit = async (paperId) => {
+    if (!editFormData.subject.trim() || !editFormData.year.trim()) {
+      alert('Subject title and year are required.')
+      return
+    }
+
+    setIsSavingEdit(true)
+    try {
+      const response = await updatePdfDetails(paperId, editFormData)
+      if (response && response.paper) {
+        setPendingList((prev) =>
+          prev.map((p) => (p.id === paperId ? { ...p, ...response.paper } : p))
+        )
+        setEditingPaperId(null)
+        if (onStatusChange) onStatusChange()
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to save paper changes.')
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
 
   const handleApprove = async (paper) => {
     setProcessingId(paper.id)
@@ -65,7 +114,7 @@ export default function AdminApprovalModal({ isOpen, onClose, onOpenPdfModal, on
 
   return (
     <div className="pdf-modal-overlay" style={{ zIndex: 2000 }} onClick={onClose}>
-      <div className="request-modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '780px' }}>
+      <div className="request-modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px' }}>
         <div className="pdf-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div className="logo-badge" style={{ width: '36px', height: '36px', background: 'rgba(175, 82, 222, 0.15)' }}>
@@ -89,7 +138,7 @@ export default function AdminApprovalModal({ isOpen, onClose, onOpenPdfModal, on
                 </span>
               </h3>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Review, preview & approve user-submitted PDFs before publishing to portal
+                Review, edit metadata, preview & approve user-submitted PDFs
               </p>
             </div>
           </div>
@@ -140,96 +189,210 @@ export default function AdminApprovalModal({ isOpen, onClose, onOpenPdfModal, on
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {pendingList.map((paper) => (
-                <div
-                  key={paper.id}
-                  style={{
-                    background: 'var(--bg-glass-card)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '12px',
-                    padding: '1rem 1.15rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.65rem'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                        <span className="badge badge-upsc" style={{ fontSize: '0.675rem' }}>
-                          {paper.category}
-                        </span>
-                        <span className="badge-mono" style={{ fontSize: '0.675rem' }}>
-                          {paper.subcategory || 'General'}
-                        </span>
-                        <span className="badge-mono" style={{ fontSize: '0.675rem' }}>
-                          {paper.year}
-                        </span>
-                        <span className="badge-mono" style={{ fontSize: '0.675rem', background: 'rgba(255, 149, 0, 0.15)', color: 'var(--apple-yellow)' }}>
-                          Pending Review
-                        </span>
+              {pendingList.map((paper) => {
+                const isEditing = editingPaperId === paper.id
+
+                return (
+                  <div
+                    key={paper.id}
+                    style={{
+                      background: 'var(--bg-glass-card)',
+                      border: isEditing ? '1px solid var(--apple-blue)' : '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                      padding: '1rem 1.15rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.65rem'
+                    }}
+                  >
+                    {isEditing ? (
+                      /* Inline Edit Form */
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, color: 'var(--apple-blue)' }}>
+                            ✏️ Editing Paper Details
+                          </h4>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {paper.id}</span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '0.5rem' }}>
+                          <div>
+                            <label className="meta-label" style={{ fontSize: '0.675rem' }}>Subject / Title</label>
+                            <input
+                              type="text"
+                              className="search-input"
+                              style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                              value={editFormData.subject}
+                              onChange={(e) => setEditFormData({ ...editFormData, subject: e.target.value })}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="meta-label" style={{ fontSize: '0.675rem' }}>Category</label>
+                            <select
+                              className="filter-select"
+                              style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                              value={editFormData.category}
+                              onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                            >
+                              <option value="UPSC">UPSC</option>
+                              <option value="JEE">JEE</option>
+                              <option value="NEET">NEET</option>
+                              <option value="Boards">Boards</option>
+                              <option value="Engineering">Engineering</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="meta-label" style={{ fontSize: '0.675rem' }}>Subcategory</label>
+                            <input
+                              type="text"
+                              className="search-input"
+                              style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                              value={editFormData.subcategory}
+                              onChange={(e) => setEditFormData({ ...editFormData, subcategory: e.target.value })}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="meta-label" style={{ fontSize: '0.675rem' }}>Year</label>
+                            <input
+                              type="text"
+                              className="search-input"
+                              style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                              value={editFormData.year}
+                              onChange={(e) => setEditFormData({ ...editFormData, year: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="meta-label" style={{ fontSize: '0.675rem' }}>PDF Display Filename</label>
+                          <input
+                            type="text"
+                            className="search-input"
+                            style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                            value={editFormData.filename}
+                            onChange={(e) => setEditFormData({ ...editFormData, filename: e.target.value })}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem' }}>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
+                            onClick={handleCancelEdit}
+                            disabled={isSavingEdit}
+                          >
+                            <X size={13} /> Cancel
+                          </button>
+                          <button
+                            className="btn btn-primary"
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                            onClick={() => handleSaveEdit(paper.id)}
+                            disabled={isSavingEdit}
+                          >
+                            {isSavingEdit ? (
+                              <Loader2 size={13} className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
+                            ) : (
+                              <>
+                                <Save size={13} /> Save Changes
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '0.25rem 0 0.15rem 0', color: 'var(--text-primary)' }}>
-                        {paper.subject}
-                      </h4>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
-                        <span>
-                          <FileText size={12} style={{ display: 'inline', marginRight: '3px' }} />
-                          {paper.filename} ({paper.size_mb} MB)
-                        </span>
-                        {paper.uploaderEmail && (
-                          <span>
-                            <Mail size={12} style={{ display: 'inline', marginRight: '3px' }} />
-                            {paper.uploaderEmail}
-                          </span>
-                        )}
-                        <span>
-                          <Clock size={12} style={{ display: 'inline', marginRight: '3px' }} />
-                          {new Date(paper.createdAt).toLocaleDateString()}
-                        </span>
+                    ) : (
+                      /* Normal Paper Details View */
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                            <span className="badge badge-upsc" style={{ fontSize: '0.675rem' }}>
+                              {paper.category}
+                            </span>
+                            <span className="badge-mono" style={{ fontSize: '0.675rem' }}>
+                              {paper.subcategory || 'General'}
+                            </span>
+                            <span className="badge-mono" style={{ fontSize: '0.675rem' }}>
+                              {paper.year}
+                            </span>
+                            <span className="badge-mono" style={{ fontSize: '0.675rem', background: 'rgba(255, 149, 0, 0.15)', color: 'var(--apple-yellow)' }}>
+                              Pending Review
+                            </span>
+                          </div>
+                          <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '0.25rem 0 0.15rem 0', color: 'var(--text-primary)' }}>
+                            {paper.subject}
+                          </h4>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                            <span>
+                              <FileText size={12} style={{ display: 'inline', marginRight: '3px' }} />
+                              {paper.filename} ({paper.size_mb} MB)
+                            </span>
+                            {paper.uploaderEmail && (
+                              <span>
+                                <Mail size={12} style={{ display: 'inline', marginRight: '3px' }} />
+                                {paper.uploaderEmail}
+                              </span>
+                            )}
+                            <span>
+                              <Clock size={12} style={{ display: 'inline', marginRight: '3px' }} />
+                              {new Date(paper.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action Controls */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '0.4rem 0.65rem', fontSize: '0.75rem' }}
+                            onClick={() => handleStartEdit(paper)}
+                            title="Edit Paper Title, Category or Year"
+                          >
+                            <Pencil size={14} /> Edit
+                          </button>
+
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '0.4rem 0.65rem', fontSize: '0.75rem' }}
+                            onClick={() => onOpenPdfModal(paper)}
+                            title="Preview PDF Document"
+                          >
+                            <Eye size={14} /> Preview
+                          </button>
+
+                          <button
+                            className="btn btn-primary"
+                            style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: 'var(--apple-green)' }}
+                            onClick={() => handleApprove(paper)}
+                            disabled={processingId === paper.id}
+                            title="Approve & Publish to Public Site"
+                          >
+                            {processingId === paper.id ? (
+                              <Loader2 size={14} className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
+                            ) : (
+                              <>
+                                <CheckCircle2 size={14} /> Approve
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '0.4rem 0.65rem', fontSize: '0.75rem', color: 'var(--apple-pink)', border: '1px solid rgba(255,59,48,0.3)' }}
+                            onClick={() => handleReject(paper)}
+                            disabled={processingId === paper.id}
+                            title="Reject & Delete Submission"
+                          >
+                            <XCircle size={14} /> Reject
+                          </button>
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Action Controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '0.4rem 0.65rem', fontSize: '0.75rem' }}
-                        onClick={() => onOpenPdfModal(paper)}
-                        title="Preview PDF Document"
-                      >
-                        <Eye size={14} /> Preview
-                      </button>
-
-                      <button
-                        className="btn btn-primary"
-                        style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: 'var(--apple-green)' }}
-                        onClick={() => handleApprove(paper)}
-                        disabled={processingId === paper.id}
-                        title="Approve & Publish to Public Site"
-                      >
-                        {processingId === paper.id ? (
-                          <Loader2 size={14} className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
-                        ) : (
-                          <>
-                            <CheckCircle2 size={14} /> Approve
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '0.4rem 0.65rem', fontSize: '0.75rem', color: 'var(--apple-pink)', border: '1px solid rgba(255,59,48,0.3)' }}
-                        onClick={() => handleReject(paper)}
-                        disabled={processingId === paper.id}
-                        title="Reject & Delete Submission"
-                      >
-                        <XCircle size={14} /> Reject
-                      </button>
-                    </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

@@ -213,6 +213,55 @@ router.patch('/:id/status', async (req, res) => {
   }
 })
 
+// @route   PUT /api/pdfs/:id
+// @desc    Admin endpoint to update PDF metadata fields before approval
+router.put('/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid PDF ID format' })
+    }
+
+    const { subject, category, subcategory, year, filename, uploaderEmail, description } = req.body
+
+    const pdfDoc = await SubmittedPdf.findById(req.params.id)
+    if (!pdfDoc) {
+      return res.status(404).json({ success: false, message: 'PDF document not found.' })
+    }
+
+    if (subject !== undefined) pdfDoc.subject = subject.trim()
+    if (category !== undefined) pdfDoc.category = category
+    if (subcategory !== undefined) pdfDoc.subcategory = subcategory.trim()
+    if (year !== undefined) pdfDoc.year = year.trim()
+    if (filename !== undefined) pdfDoc.filename = filename.trim()
+    if (uploaderEmail !== undefined) pdfDoc.uploaderEmail = uploaderEmail.trim()
+    if (description !== undefined) pdfDoc.description = description.trim()
+
+    await pdfDoc.save()
+
+    res.json({
+      success: true,
+      message: 'PDF details updated successfully.',
+      paper: {
+        id: pdfDoc._id.toString(),
+        subject: pdfDoc.subject,
+        category: pdfDoc.category,
+        subcategory: pdfDoc.subcategory,
+        year: pdfDoc.year,
+        filename: pdfDoc.filename,
+        size_mb: pdfDoc.size_mb,
+        uploaderEmail: pdfDoc.uploaderEmail,
+        description: pdfDoc.description,
+        download_url: `/api/pdfs/${pdfDoc._id}/file`,
+        status: pdfDoc.status,
+        createdAt: pdfDoc.createdAt
+      }
+    })
+  } catch (error) {
+    console.error('Update Error:', error)
+    res.status(500).json({ success: false, message: 'Server error updating PDF metadata.' })
+  }
+})
+
 // @route   GET /api/pdfs/:id/file
 // @desc    Stream raw PDF binary file from GridFS
 router.get('/:id/file', async (req, res) => {
