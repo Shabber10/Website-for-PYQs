@@ -7,6 +7,7 @@ import GridCards from './components/GridCards'
 import DetailsPanel from './components/DetailsPanel'
 import PdfModal from './components/PdfModal'
 import UploadPdfModal from './components/UploadPdfModal'
+import UserUploadsModal from './components/UserUploadsModal'
 import AdminLoginModal from './components/AdminLoginModal'
 import AdminApprovalModal from './components/AdminApprovalModal'
 import papersData from './data/papers.json'
@@ -23,6 +24,7 @@ export default function App() {
   const [selectedPaper, setSelectedPaper] = useState(null)
   const [pdfModalPaper, setPdfModalPaper] = useState(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isUserUploadsModalOpen, setIsUserUploadsModalOpen] = useState(false)
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false)
   const [isAdminApprovalModalOpen, setIsAdminApprovalModalOpen] = useState(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
@@ -250,6 +252,7 @@ export default function App() {
         search={filters.search}
         onSearchChange={(val) => handleFilterChange('search', val)}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenUserUploadsModal={() => setIsUserUploadsModalOpen(true)}
       />
       
       {/* Search, Dropdowns, Chips & View Switcher */}
@@ -356,6 +359,14 @@ export default function App() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onUploadSuccess={handleUploadSuccess}
+      />
+
+      {/* User Uploaded Submissions Manager Modal */}
+      <UserUploadsModal
+        isOpen={isUserUploadsModalOpen}
+        onClose={() => setIsUserUploadsModalOpen(false)}
+        onOpenPdfModal={setPdfModalPaper}
+        onStatusChange={handleAdminStatusChange}
       />
 
       {/* Secret Admin Authentication Login Modal */}

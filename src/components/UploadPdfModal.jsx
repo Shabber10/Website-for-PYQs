@@ -8,7 +8,7 @@ export default function UploadPdfModal({ isOpen, onClose, onUploadSuccess }) {
     category: 'UPSC',
     subcategory: '',
     year: new Date().getFullYear().toString(),
-    uploaderEmail: '',
+    uploaderEmail: localStorage.getItem('pyq_uploader_email') || '',
     description: ''
   })
   const [selectedFile, setSelectedFile] = useState(null)
@@ -80,6 +80,9 @@ export default function UploadPdfModal({ isOpen, onClose, onUploadSuccess }) {
       data.append('description', formData.description.trim())
 
       const result = await uploadPdf(data)
+      if (formData.uploaderEmail.trim()) {
+        localStorage.setItem('pyq_uploader_email', formData.uploaderEmail.trim())
+      }
       setUploadSuccess(true)
       if (onUploadSuccess) {
         onUploadSuccess(result.paper)

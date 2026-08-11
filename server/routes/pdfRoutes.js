@@ -170,6 +170,45 @@ router.get('/', async (req, res) => {
   }
 })
 
+// @route   GET /api/pdfs/user
+// @desc    Get all PDF submissions uploaded by a specific user email
+router.get('/user', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({ success: true, count: 0, papers: [] })
+    }
+
+    const { email } = req.query
+    if (!email || !email.trim()) {
+      return res.status(400).json({ success: false, message: 'Uploader email is required.' })
+    }
+
+    const pdfs = await SubmittedPdf.find({
+      uploaderEmail: { $regex: new RegExp('^' + email.trim() + '$', 'i') }
+    }).sort({ createdAt: -1 })
+
+    const formattedPdfs = pdfs.map((pdf) => ({
+      id: pdf._id.toString(),
+      subject: pdf.subject,
+      category: pdf.category,
+      subcategory: pdf.subcategory,
+      year: pdf.year,
+      filename: pdf.filename,
+      size_mb: pdf.size_mb,
+      uploaderEmail: pdf.uploaderEmail,
+      description: pdf.description,
+      download_url: `/api/pdfs/${pdf._id}/file`,
+      status: pdf.status,
+      createdAt: pdf.createdAt
+    }))
+
+    res.json({ success: true, count: formattedPdfs.length, papers: formattedPdfs })
+  } catch (error) {
+    console.error('Fetch User PDFs Error:', error)
+    res.status(500).json({ success: false, message: 'Server error fetching user submissions' })
+  }
+})
+
 // @route   PATCH /api/pdfs/:id/status
 // @desc    Admin endpoint to approve or reject a pending PDF submission
 router.patch('/:id/status', async (req, res) => {

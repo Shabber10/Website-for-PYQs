@@ -31,6 +31,17 @@ export async function fetchPdfs(params = {}) {
   return await response.json()
 }
 
+export async function fetchUserPdfs(email) {
+  if (!email) return { success: true, count: 0, papers: [] }
+  const response = await fetch(`${API_BASE}/pdfs/user?email=${encodeURIComponent(email)}`)
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch user submissions.')
+  }
+  
+  return await response.json()
+}
+
 export async function updatePdfStatus(id, status) {
   const response = await fetch(`${API_BASE}/pdfs/${id}/status`, {
     method: 'PATCH',

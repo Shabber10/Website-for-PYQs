@@ -1,8 +1,8 @@
 import React from 'react'
-import { BookOpen, Sparkles, ShieldCheck, Search, X, UploadCloud } from 'lucide-react'
+import { BookOpen, Sparkles, ShieldCheck, Search, X, UploadCloud, FolderClock } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 
-export default function Header({ search, onSearchChange, onOpenUploadModal }) {
+export default function Header({ search, onSearchChange, onOpenUploadModal, onOpenUserUploadsModal }) {
   return (
     <header className="header">
       <div className="header-left">
@@ -49,6 +49,15 @@ export default function Header({ search, onSearchChange, onOpenUploadModal }) {
         >
           <UploadCloud size={15} />
           <span className="btn-request-label">Upload PDF</span>
+        </button>
+
+        <button
+          className="btn btn-secondary btn-request-header"
+          onClick={onOpenUserUploadsModal}
+          title="View, edit, or withdraw your uploaded PDF submissions"
+        >
+          <FolderClock size={15} style={{ color: 'var(--apple-blue)' }} />
+          <span className="btn-request-label">My Uploads</span>
         </button>
 
         <div className="repo-badge-chip">
