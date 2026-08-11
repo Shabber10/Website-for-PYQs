@@ -122,14 +122,14 @@ export default function GridCards({
               {searchQuery ? `No papers found for "${searchQuery}"` : "No papers found matching filters"}
             </h3>
             <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', maxWidth: '380px', margin: '0 auto 1.25rem auto', lineHeight: 1.4 }}>
-              Can't find the exam paper you're looking for? Submit a quick request and our team will index the PDF for you.
+              Have a copy of this exam paper? Upload your PDF file directly to save it in our MongoDB database.
             </p>
             <button
               className="btn btn-primary"
-              onClick={() => onOpenRequestModal && onOpenRequestModal(searchQuery)}
+              onClick={() => onOpenRequestModal && onOpenRequestModal()}
               style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem' }}
             >
-              <FileQuestion size={16} /> Request {searchQuery ? `"${searchQuery}"` : "a Paper"}
+              <FileText size={16} /> Upload PDF
             </button>
           </div>
         </div>

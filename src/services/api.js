@@ -1,0 +1,117 @@
+// API service for interacting with the Express + MongoDB backend
+
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
+export async function uploadPdf(formData) {
+  const response = await fetch(`${API_BASE}/pdfs/upload`, {
+    method: 'POST',
+    body: formData
+  })
+
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Failed to upload PDF to server.')
+  }
+  return data
+}
+
+export async function fetchPdfs(params = {}) {
+  const query = new URLSearchParams()
+  if (params.category) query.append('category', params.category)
+  if (params.search) query.append('search', params.search)
+  if (params.status) query.append('status', params.status)
+
+  const queryString = query.toString() ? `?${query.toString()}` : ''
+  const response = await fetch(`${API_BASE}/pdfs${queryString}`)
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch PDFs from backend.')
+  }
+  
+  return await response.json()
+}
+
+export async function fetchUserPdfs(params = {}) {
+  const query = new URLSearchParams()
+  
+  if (typeof params === 'string') {
+    if (params) query.append('email', params)
+  } else {
+    if (params.email) query.append('email', params.email)
+    if (params.ids && Array.isArray(params.ids) && params.ids.length > 0) {
+      query.append('ids', params.ids.join(','))
+    }
+  }
+
+  const queryString = query.toString() ? `?${query.toString()}` : ''
+  if (!queryString) return { success: true, count: 0, papers: [] }
+
+  const response = await fetch(`${API_BASE}/pdfs/user${queryString}`)
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch user submissions.')
+  }
+  
+  return await response.json()
+}
+
+export async function updatePdfStatus(id, status) {
+  const response = await fetch(`${API_BASE}/pdfs/${id}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ status })
+  })
+
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Failed to update PDF status.')
+  }
+  return data
+}
+
+export async function updatePdfDetails(id, updatedFields) {
+  const response = await fetch(`${API_BASE}/pdfs/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(updatedFields)
+  })
+
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Failed to update PDF details.')
+  }
+  return data
+}
+
+export async function adminLogin(username, password) {
+  const response = await fetch(`${API_BASE}/admin/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password })
+  })
+
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Invalid username or password.')
+  }
+  return data
+}
+
+export async function deletePdf(id) {
+  const response = await fetch(`${API_BASE}/pdfs/${id}`, {
+    method: 'DELETE'
+  })
+
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Failed to delete PDF.')
+  }
+  return data
+}
+

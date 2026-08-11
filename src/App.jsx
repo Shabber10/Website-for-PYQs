@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import Header from './components/Header'
 import KPICards from './components/KPICards'
 import FilterBar from './components/FilterBar'
@@ -6,9 +6,12 @@ import Table from './components/Table'
 import GridCards from './components/GridCards'
 import DetailsPanel from './components/DetailsPanel'
 import PdfModal from './components/PdfModal'
-import RequestPaperModal from './components/RequestPaperModal'
-import AdminRequestsModal from './components/AdminRequestsModal'
+import UploadPdfModal from './components/UploadPdfModal'
+import UserUploadsModal from './components/UserUploadsModal'
+import AdminLoginModal from './components/AdminLoginModal'
+import AdminApprovalModal from './components/AdminApprovalModal'
 import papersData from './data/papers.json'
+import { fetchPdfs } from './services/api'
 
 export default function App() {
   // State variables
@@ -20,10 +23,15 @@ export default function App() {
   })
   const [selectedPaper, setSelectedPaper] = useState(null)
   const [pdfModalPaper, setPdfModalPaper] = useState(null)
-  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false)
-  const [requestInitialQuery, setRequestInitialQuery] = useState('')
-  const [requestCount, setRequestCount] = useState(0)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isUserUploadsModalOpen, setIsUserUploadsModalOpen] = useState(false)
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false)
+  const [isAdminApprovalModalOpen, setIsAdminApprovalModalOpen] = useState(false)
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    return Boolean(sessionStorage.getItem('admin_token'))
+  })
+  const [serverPapers, setServerPapers] = useState([])
+  const [pendingCount, setPendingCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('pyq_view_mode') || 'grid'
@@ -39,24 +47,45 @@ export default function App() {
     }
   })
 
-  // Load initial request count from localStorage
-  useEffect(() => {
+  // Load uploaded & approved PDFs from MongoDB backend
+  const loadMongoPdfs = useCallback(async () => {
     try {
-      const saved = localStorage.getItem('pyq_paper_requests')
-      if (saved) {
-        setRequestCount(JSON.parse(saved).length)
+      const response = await fetchPdfs({ status: 'Approved' })
+      if (response && response.papers) {
+        setServerPapers(response.papers)
       }
     } catch {
-      // ignore
+      // Backend may not be connected locally yet, fallback silently
     }
-  }, [isRequestModalOpen])
+  }, [])
+
+  // Load pending submissions count for admin badge
+  const loadPendingCount = useCallback(async () => {
+    try {
+      const response = await fetchPdfs({ status: 'Pending' })
+      if (response && response.papers) {
+        setPendingCount(response.papers.length)
+      }
+    } catch {
+      // fallback silently
+    }
+  }, [])
+
+  useEffect(() => {
+    loadMongoPdfs()
+    loadPendingCount()
+  }, [loadMongoPdfs, loadPendingCount])
 
   const itemsPerPage = viewMode === 'grid' ? 12 : 20
 
-  const handleOpenRequestModal = (query = '') => {
-    setRequestInitialQuery(query)
-    setIsRequestModalOpen(true)
-  }
+  // Combine static JSON catalog with MongoDB approved papers
+  const combinedPapers = useMemo(() => {
+    const serverMap = new Map()
+    serverPapers.forEach((p) => serverMap.set(p.id, p))
+    
+    // Server papers take priority at top
+    return [...serverPapers, ...papersData.filter((p) => !serverMap.has(p.id))]
+  }, [serverPapers])
 
   // Persist viewMode
   useEffect(() => {
@@ -79,30 +108,30 @@ export default function App() {
     setCurrentPage(1)
   }, [filters, viewMode, showOnlyBookmarked, sortBy])
 
-  // 2. Extract available subcategories based on chosen category
+  // Extract available subcategories based on chosen category
   const availableSubcategories = useMemo(() => {
     if (!filters.category) return []
     const subs = new Set()
-    papersData.forEach(p => {
-      if (p.category === filters.category) {
+    combinedPapers.forEach(p => {
+      if (p.category === filters.category && p.subcategory) {
         subs.add(p.subcategory)
       }
     })
     return Array.from(subs).sort()
-  }, [filters.category])
+  }, [filters.category, combinedPapers])
 
-  // 3. Extract available years based on chosen category/subcategory
+  // Extract available years based on chosen category/subcategory
   const availableYears = useMemo(() => {
     const yrs = new Set()
-    papersData.forEach(p => {
+    combinedPapers.forEach(p => {
       if (filters.category && p.category !== filters.category) return
       if (filters.subcategory && p.subcategory !== filters.subcategory) return
       if (p.year && p.year !== 'Unknown') {
         yrs.add(p.year)
       }
     })
-    return Array.from(yrs).sort((a, b) => b.localeCompare(a)) // descending
-  }, [filters.category, filters.subcategory])
+    return Array.from(yrs).sort((a, b) => b.localeCompare(a))
+  }, [filters.category, filters.subcategory, combinedPapers])
 
   // Handle single filter modification
   const handleFilterChange = (key, value) => {
@@ -129,11 +158,11 @@ export default function App() {
     setSortBy('year-desc')
   }
 
-  // 4. Perform in-memory filtering and sorting of papers
+  // Filter and sort combined papers
   const filteredPapers = useMemo(() => {
     const query = filters.search.trim().toLowerCase()
     
-    let result = papersData.filter(paper => {
+    let result = combinedPapers.filter(paper => {
       // Bookmarked filter
       if (showOnlyBookmarked && !bookmarkedIds.includes(paper.id)) return false
 
@@ -148,11 +177,11 @@ export default function App() {
       
       // Text search filter
       if (query) {
-        const matchesSubject = paper.subject.toLowerCase().includes(query)
-        const matchesCategory = paper.category.toLowerCase().includes(query)
-        const matchesSubcategory = paper.subcategory.toLowerCase().includes(query)
-        const matchesYear = paper.year.toLowerCase().includes(query)
-        const matchesFilename = paper.filename.toLowerCase().includes(query)
+        const matchesSubject = (paper.subject || '').toLowerCase().includes(query)
+        const matchesCategory = (paper.category || '').toLowerCase().includes(query)
+        const matchesSubcategory = (paper.subcategory || '').toLowerCase().includes(query)
+        const matchesYear = (paper.year || '').toLowerCase().includes(query)
+        const matchesFilename = (paper.filename || '').toLowerCase().includes(query)
         
         return matchesSubject || matchesCategory || matchesSubcategory || matchesYear || matchesFilename
       }
@@ -168,33 +197,62 @@ export default function App() {
       if (sortBy === 'size-desc') return (parseFloat(b.size_mb) || 0) - (parseFloat(a.size_mb) || 0)
       return 0
     })
-  }, [filters, showOnlyBookmarked, bookmarkedIds, sortBy])
+  }, [combinedPapers, filters, showOnlyBookmarked, bookmarkedIds, sortBy])
 
-  // 1. Static counts for Overall Repository scale (KPI cards)
+  // Overall Repository scale stats for KPI cards
   const overallStats = useMemo(() => {
-    let total = papersData.length
+    let total = combinedPapers.length
     let upsc = 0
     let competitive = 0
     let boards = 0
 
-    papersData.forEach(p => {
+    combinedPapers.forEach(p => {
       if (p.category === 'UPSC') upsc++
       else if (p.category === 'Boards') boards++
       else if (p.category === 'JEE' || p.category === 'NEET') competitive++
     })
 
     return { total, upsc, competitive, boards }
-  }, [])
+  }, [combinedPapers])
+
+  const handleUploadSuccess = () => {
+    loadPendingCount()
+  }
+
+  const handleAdminStatusChange = () => {
+    loadMongoPdfs()
+    loadPendingCount()
+  }
+
+  // Secret admin link click handler in footer
+  const handleSecretAdminClick = () => {
+    if (isAdminAuthenticated) {
+      setIsAdminApprovalModalOpen(true)
+    } else {
+      setIsAdminLoginModalOpen(true)
+    }
+  }
+
+  const handleAdminLoginSuccess = () => {
+    setIsAdminAuthenticated(true)
+    setIsAdminLoginModalOpen(false)
+    setIsAdminApprovalModalOpen(true)
+  }
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('admin_token')
+    setIsAdminAuthenticated(false)
+    setIsAdminApprovalModalOpen(false)
+  }
 
   return (
     <div className="app-container">
-      {/* Header with Title, Navbar Search Bar and Dark Mode Toggle */}
+      {/* Header with Title, Search Bar & Upload PDF Action */}
       <Header 
         search={filters.search}
         onSearchChange={(val) => handleFilterChange('search', val)}
-        onOpenRequestModal={handleOpenRequestModal}
-        onOpenAdminModal={() => setIsAdminModalOpen(true)}
-        requestCount={requestCount}
+        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenUserUploadsModal={() => setIsUserUploadsModalOpen(true)}
       />
       
       {/* Search, Dropdowns, Chips & View Switcher */}
@@ -224,7 +282,7 @@ export default function App() {
               bookmarkedIds={bookmarkedIds}
               onToggleBookmark={handleToggleBookmark}
               onOpenPdfModal={setPdfModalPaper}
-              onOpenRequestModal={handleOpenRequestModal}
+              onOpenRequestModal={() => setIsUploadModalOpen(true)}
               searchQuery={filters.search}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
@@ -238,7 +296,7 @@ export default function App() {
               bookmarkedIds={bookmarkedIds}
               onToggleBookmark={handleToggleBookmark}
               onOpenPdfModal={setPdfModalPaper}
-              onOpenRequestModal={handleOpenRequestModal}
+              onOpenRequestModal={() => setIsUploadModalOpen(true)}
               searchQuery={filters.search}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
@@ -267,7 +325,24 @@ export default function App() {
         </div>
         <KPICards stats={overallStats} />
         <div className="footer-bottom-row">
-          <p>© {new Date().getFullYear()} PYQ Portal • Built with React & Vite</p>
+          <p>
+            © {new Date().getFullYear()} PYQ Portal • Built by{' '}
+            <span
+              onClick={handleSecretAdminClick}
+              title="Secret Admin Access"
+              style={{
+                cursor: 'pointer',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                transition: 'color 0.2s ease',
+                borderBottom: '1px dotted var(--text-muted)'
+              }}
+              onMouseEnter={(e) => (e.target.style.color = 'var(--apple-purple)')}
+              onMouseLeave={(e) => (e.target.style.color = 'var(--text-primary)')}
+            >
+              Shabber
+            </span>
+          </p>
         </div>
       </footer>
 
@@ -279,18 +354,35 @@ export default function App() {
         />
       )}
 
-      {/* Request Paper Modal */}
-      <RequestPaperModal 
-        isOpen={isRequestModalOpen}
-        onClose={() => setIsRequestModalOpen(false)}
-        initialQuery={requestInitialQuery}
+      {/* Upload PDF Modal (MongoDB GridFS upload) */}
+      <UploadPdfModal 
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUploadSuccess={handleUploadSuccess}
       />
 
-      {/* Admin Request Management Modal */}
-      <AdminRequestsModal 
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
-        onRequestCountChange={setRequestCount}
+      {/* User Uploaded Submissions Manager Modal */}
+      <UserUploadsModal
+        isOpen={isUserUploadsModalOpen}
+        onClose={() => setIsUserUploadsModalOpen(false)}
+        onOpenPdfModal={setPdfModalPaper}
+        onStatusChange={handleAdminStatusChange}
+      />
+
+      {/* Secret Admin Authentication Login Modal */}
+      <AdminLoginModal
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
+        onLoginSuccess={handleAdminLoginSuccess}
+      />
+
+      {/* Admin Approval Queue Modal */}
+      <AdminApprovalModal
+        isOpen={isAdminApprovalModalOpen}
+        onClose={() => setIsAdminApprovalModalOpen(false)}
+        onOpenPdfModal={setPdfModalPaper}
+        onStatusChange={handleAdminStatusChange}
+        onLogout={handleAdminLogout}
       />
     </div>
   )
