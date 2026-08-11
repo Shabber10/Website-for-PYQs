@@ -83,6 +83,17 @@ export default function UploadPdfModal({ isOpen, onClose, onUploadSuccess }) {
       if (formData.uploaderEmail.trim()) {
         localStorage.setItem('pyq_uploader_email', formData.uploaderEmail.trim())
       }
+      if (result && result.paper && result.paper.id) {
+        try {
+          const savedIds = JSON.parse(localStorage.getItem('pyq_my_uploaded_ids') || '[]')
+          if (!savedIds.includes(result.paper.id)) {
+            savedIds.push(result.paper.id)
+            localStorage.setItem('pyq_my_uploaded_ids', JSON.stringify(savedIds))
+          }
+        } catch {
+          // fallback silently
+        }
+      }
       setUploadSuccess(true)
       if (onUploadSuccess) {
         onUploadSuccess(result.paper)

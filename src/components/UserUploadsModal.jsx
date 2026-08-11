@@ -22,7 +22,14 @@ export default function UserUploadsModal({ isOpen, onClose, onOpenPdfModal, onSt
 
   const loadSubmissions = async (emailToFetch) => {
     const targetEmail = emailToFetch !== undefined ? emailToFetch : emailInput
-    if (!targetEmail.trim()) {
+    let savedIds = []
+    try {
+      savedIds = JSON.parse(localStorage.getItem('pyq_my_uploaded_ids') || '[]')
+    } catch {
+      savedIds = []
+    }
+
+    if (!targetEmail.trim() && savedIds.length === 0) {
       setUserPapers([])
       return
     }
@@ -30,8 +37,10 @@ export default function UserUploadsModal({ isOpen, onClose, onOpenPdfModal, onSt
     setIsLoading(true)
     setErrorMessage('')
     try {
-      localStorage.setItem('pyq_uploader_email', targetEmail.trim())
-      const response = await fetchUserPdfs(targetEmail.trim())
+      if (targetEmail.trim()) {
+        localStorage.setItem('pyq_uploader_email', targetEmail.trim())
+      }
+      const response = await fetchUserPdfs({ email: targetEmail.trim(), ids: savedIds })
       if (response && response.papers) {
         setUserPapers(response.papers)
       } else {
@@ -49,8 +58,8 @@ export default function UserUploadsModal({ isOpen, onClose, onOpenPdfModal, onSt
       const savedEmail = localStorage.getItem('pyq_uploader_email') || ''
       if (savedEmail) {
         setEmailInput(savedEmail)
-        loadSubmissions(savedEmail)
       }
+      loadSubmissions(savedEmail)
     }
   }, [isOpen])
 

@@ -31,9 +31,22 @@ export async function fetchPdfs(params = {}) {
   return await response.json()
 }
 
-export async function fetchUserPdfs(email) {
-  if (!email) return { success: true, count: 0, papers: [] }
-  const response = await fetch(`${API_BASE}/pdfs/user?email=${encodeURIComponent(email)}`)
+export async function fetchUserPdfs(params = {}) {
+  const query = new URLSearchParams()
+  
+  if (typeof params === 'string') {
+    if (params) query.append('email', params)
+  } else {
+    if (params.email) query.append('email', params.email)
+    if (params.ids && Array.isArray(params.ids) && params.ids.length > 0) {
+      query.append('ids', params.ids.join(','))
+    }
+  }
+
+  const queryString = query.toString() ? `?${query.toString()}` : ''
+  if (!queryString) return { success: true, count: 0, papers: [] }
+
+  const response = await fetch(`${API_BASE}/pdfs/user${queryString}`)
   
   if (!response.ok) {
     throw new Error('Failed to fetch user submissions.')

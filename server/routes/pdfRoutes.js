@@ -171,21 +171,40 @@ router.get('/', async (req, res) => {
 })
 
 // @route   GET /api/pdfs/user
-// @desc    Get all PDF submissions uploaded by a specific user email
+// @desc    Get all PDF submissions uploaded by a specific user email or list of paper IDs
 router.get('/user', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.json({ success: true, count: 0, papers: [] })
     }
 
-    const { email } = req.query
-    if (!email || !email.trim()) {
-      return res.status(400).json({ success: false, message: 'Uploader email is required.' })
+    const { email, ids } = req.query
+    let queryConditions = []
+
+    if (email && email.trim()) {
+      queryConditions.push({
+        uploaderEmail: { $regex: new RegExp('^' + email.trim() + '$', 'i') }
+      })
     }
 
-    const pdfs = await SubmittedPdf.find({
-      uploaderEmail: { $regex: new RegExp('^' + email.trim() + '$', 'i') }
-    }).sort({ createdAt: -1 })
+    if (ids && ids.trim()) {
+      const idArray = ids
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+
+      if (idArray.length > 0) {
+        queryConditions.push({ _id: { $in: idArray } })
+      }
+    }
+
+    if (queryConditions.length === 0) {
+      return res.json({ success: true, count: 0, papers: [] })
+    }
+
+    const query = queryConditions.length > 1 ? { $or: queryConditions } : queryConditions[0]
+
+    const pdfs = await SubmittedPdf.find(query).sort({ createdAt: -1 })
 
     const formattedPdfs = pdfs.map((pdf) => ({
       id: pdf._id.toString(),
