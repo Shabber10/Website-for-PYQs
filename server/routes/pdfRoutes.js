@@ -24,17 +24,23 @@ const upload = multer({
 
 // Helper to get GridFS Bucket
 const getGridFSBucket = () => {
-  const db = mongoose.connection.db
-  if (!db) {
-    throw new Error('Database connection is not ready yet.')
+  if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+    throw new Error('MongoDB is not connected. Please set MONGODB_URI in your .env file or environment variables.')
   }
-  return new mongoose.mongo.GridFSBucket(db, { bucketName: 'pdfs' })
+  return new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'pdfs' })
 }
 
 // @route   POST /api/pdfs/upload
 // @desc    Upload a PDF file and metadata to MongoDB GridFS
 router.post('/upload', upload.single('pdfFile'), async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'MongoDB is not connected. Please set MONGODB_URI in your .env file (e.g. MongoDB Atlas cluster link).'
+      })
+    }
+
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No PDF file uploaded.' })
     }
@@ -110,6 +116,10 @@ router.post('/upload', upload.single('pdfFile'), async (req, res) => {
 // @desc    Get all submitted PDFs metadata
 router.get('/', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({ success: true, count: 0, papers: [] })
+    }
+
     const { category, search } = req.query
     let query = {}
 
