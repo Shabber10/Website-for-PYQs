@@ -19,6 +19,7 @@ export async function fetchPdfs(params = {}) {
   const query = new URLSearchParams()
   if (params.category) query.append('category', params.category)
   if (params.search) query.append('search', params.search)
+  if (params.status) query.append('status', params.status)
 
   const queryString = query.toString() ? `?${query.toString()}` : ''
   const response = await fetch(`${API_BASE}/pdfs${queryString}`)
@@ -28,6 +29,22 @@ export async function fetchPdfs(params = {}) {
   }
   
   return await response.json()
+}
+
+export async function updatePdfStatus(id, status) {
+  const response = await fetch(`${API_BASE}/pdfs/${id}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ status })
+  })
+
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Failed to update PDF status.')
+  }
+  return data
 }
 
 export async function deletePdf(id) {

@@ -52,7 +52,7 @@ const SubmittedPdfSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ['Approved', 'Pending', 'Rejected'],
-      default: 'Approved'
+      default: 'Pending'
     }
   },
   {

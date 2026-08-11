@@ -85,14 +85,14 @@ router.post('/upload', upload.single('pdfFile'), async (req, res) => {
         filename: cleanFilename,
         contentType: req.file.mimetype || 'application/pdf',
         size_mb: sizeInMB,
-        status: 'Approved'
+        status: 'Pending'
       })
 
       await newPdf.save()
 
       res.status(201).json({
         success: true,
-        message: 'PDF uploaded successfully to MongoDB!',
+        message: 'PDF uploaded successfully! Submitted for Admin review.',
         paper: {
           id: newPdf._id.toString(),
           subject: newPdf.subject,
@@ -101,7 +101,9 @@ router.post('/upload', upload.single('pdfFile'), async (req, res) => {
           year: newPdf.year,
           filename: newPdf.filename,
           size_mb: newPdf.size_mb,
+          uploaderEmail: newPdf.uploaderEmail,
           download_url: `/api/pdfs/${newPdf._id}/file`,
+          status: newPdf.status,
           createdAt: newPdf.createdAt
         }
       })
@@ -113,15 +115,25 @@ router.post('/upload', upload.single('pdfFile'), async (req, res) => {
 })
 
 // @route   GET /api/pdfs
-// @desc    Get all submitted PDFs metadata
+// @desc    Get submitted PDFs metadata (defaults to Approved for public, status=ALL or Pending for Admin)
 router.get('/', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.json({ success: true, count: 0, papers: [] })
     }
 
-    const { category, search } = req.query
+    const { category, search, status } = req.query
     let query = {}
+
+    // Filter by status (default to 'Approved' for public site)
+    if (status === 'ALL') {
+      // Return all non-rejected papers
+      query.status = { $ne: 'Rejected' }
+    } else if (status) {
+      query.status = status
+    } else {
+      query.status = 'Approved'
+    }
 
     if (category) {
       query.category = category
@@ -155,6 +167,49 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Fetch Error:', error)
     res.status(500).json({ success: false, message: 'Server error fetching PDFs' })
+  }
+})
+
+// @route   PATCH /api/pdfs/:id/status
+// @desc    Admin endpoint to approve or reject a pending PDF submission
+router.patch('/:id/status', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid PDF ID format' })
+    }
+
+    const { status } = req.body
+    if (!status || !['Approved', 'Pending', 'Rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status provided.' })
+    }
+
+    const pdfDoc = await SubmittedPdf.findById(req.params.id)
+    if (!pdfDoc) {
+      return res.status(404).json({ success: false, message: 'PDF document not found.' })
+    }
+
+    pdfDoc.status = status
+    await pdfDoc.save()
+
+    res.json({
+      success: true,
+      message: `Paper status updated to ${status}.`,
+      paper: {
+        id: pdfDoc._id.toString(),
+        subject: pdfDoc.subject,
+        category: pdfDoc.category,
+        subcategory: pdfDoc.subcategory,
+        year: pdfDoc.year,
+        filename: pdfDoc.filename,
+        size_mb: pdfDoc.size_mb,
+        download_url: `/api/pdfs/${pdfDoc._id}/file`,
+        status: pdfDoc.status,
+        createdAt: pdfDoc.createdAt
+      }
+    })
+  } catch (error) {
+    console.error('Status Update Error:', error)
+    res.status(500).json({ success: false, message: 'Server error updating paper status.' })
   }
 })
 

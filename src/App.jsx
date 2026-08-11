@@ -7,6 +7,7 @@ import GridCards from './components/GridCards'
 import DetailsPanel from './components/DetailsPanel'
 import PdfModal from './components/PdfModal'
 import UploadPdfModal from './components/UploadPdfModal'
+import AdminApprovalModal from './components/AdminApprovalModal'
 import papersData from './data/papers.json'
 import { fetchPdfs } from './services/api'
 
@@ -21,7 +22,9 @@ export default function App() {
   const [selectedPaper, setSelectedPaper] = useState(null)
   const [pdfModalPaper, setPdfModalPaper] = useState(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false)
   const [serverPapers, setServerPapers] = useState([])
+  const [pendingCount, setPendingCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('pyq_view_mode') || 'grid'
@@ -37,10 +40,10 @@ export default function App() {
     }
   })
 
-  // Load uploaded PDFs from MongoDB backend
+  // Load uploaded & approved PDFs from MongoDB backend
   const loadMongoPdfs = useCallback(async () => {
     try {
-      const response = await fetchPdfs()
+      const response = await fetchPdfs({ status: 'Approved' })
       if (response && response.papers) {
         setServerPapers(response.papers)
       }
@@ -49,13 +52,26 @@ export default function App() {
     }
   }, [])
 
+  // Load pending submissions count for admin badge
+  const loadPendingCount = useCallback(async () => {
+    try {
+      const response = await fetchPdfs({ status: 'Pending' })
+      if (response && response.papers) {
+        setPendingCount(response.papers.length)
+      }
+    } catch {
+      // fallback silently
+    }
+  }, [])
+
   useEffect(() => {
     loadMongoPdfs()
-  }, [loadMongoPdfs])
+    loadPendingCount()
+  }, [loadMongoPdfs, loadPendingCount])
 
   const itemsPerPage = viewMode === 'grid' ? 12 : 20
 
-  // Combine static JSON catalog with MongoDB uploaded papers
+  // Combine static JSON catalog with MongoDB approved papers
   const combinedPapers = useMemo(() => {
     const serverMap = new Map()
     serverPapers.forEach((p) => serverMap.set(p.id, p))
@@ -192,17 +208,24 @@ export default function App() {
     return { total, upsc, competitive, boards }
   }, [combinedPapers])
 
-  const handleUploadSuccess = (newPaper) => {
-    setServerPapers((prev) => [newPaper, ...prev])
+  const handleUploadSuccess = () => {
+    loadPendingCount()
+  }
+
+  const handleAdminStatusChange = () => {
+    loadMongoPdfs()
+    loadPendingCount()
   }
 
   return (
     <div className="app-container">
-      {/* Header with Title, Search Bar and Upload PDF Action */}
+      {/* Header with Title, Search Bar, Upload PDF Action & Admin Review */}
       <Header 
         search={filters.search}
         onSearchChange={(val) => handleFilterChange('search', val)}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
+        pendingCount={pendingCount}
       />
       
       {/* Search, Dropdowns, Chips & View Switcher */}
@@ -292,6 +315,14 @@ export default function App() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onUploadSuccess={handleUploadSuccess}
+      />
+
+      {/* Admin Approval Queue Modal */}
+      <AdminApprovalModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        onOpenPdfModal={setPdfModalPaper}
+        onStatusChange={handleAdminStatusChange}
       />
     </div>
   )

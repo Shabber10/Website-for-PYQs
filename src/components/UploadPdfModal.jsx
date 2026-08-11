@@ -135,10 +135,10 @@ export default function UploadPdfModal({ isOpen, onClose, onUploadSuccess }) {
                 <CheckCircle2 size={48} style={{ color: 'var(--apple-green)' }} />
               </div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0.5rem 0 0.25rem 0', color: 'var(--text-primary)' }}>
-                Uploaded to MongoDB!
+                Submitted for Review!
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '380px', margin: '0 auto 1.25rem auto', lineHeight: 1.4 }}>
-                Your PDF <strong>"{formData.subject}"</strong> has been stored in MongoDB GridFS and is now available in the portal catalog.
+                Your PDF <strong>"{formData.subject}"</strong> has been saved in MongoDB and is currently placed on hold for admin review. It will be published live once approved.
               </p>
 
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
