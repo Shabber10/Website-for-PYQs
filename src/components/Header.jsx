@@ -1,8 +1,8 @@
 import React from 'react'
-import { BookOpen, Sparkles, ShieldCheck, Search, X, FileQuestion, Inbox } from 'lucide-react'
+import { BookOpen, Sparkles, ShieldCheck, Search, X, UploadCloud } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 
-export default function Header({ search, onSearchChange, onOpenRequestModal, onOpenAdminModal, requestCount = 0 }) {
+export default function Header({ search, onSearchChange, onOpenUploadModal }) {
   return (
     <header className="header">
       <div className="header-left">
@@ -43,37 +43,12 @@ export default function Header({ search, onSearchChange, onOpenRequestModal, onO
 
       <div className="header-actions">
         <button
-          className="btn btn-accent-pink btn-request-header"
-          onClick={() => onOpenRequestModal('')}
-          title="Request a Missing Exam Paper"
+          className="btn btn-primary btn-request-header"
+          onClick={onOpenUploadModal}
+          title="Upload PDF file to MongoDB backend"
         >
-          <FileQuestion size={15} />
-          <span className="btn-request-label">Request Paper</span>
-        </button>
-
-        <button
-          className="btn btn-secondary btn-request-header"
-          onClick={onOpenAdminModal}
-          title="View & Manage Visitor Requests"
-          style={{ position: 'relative' }}
-        >
-          <Inbox size={15} style={{ color: 'var(--apple-purple)' }} />
-          <span className="btn-request-label">Requests</span>
-          {requestCount > 0 && (
-            <span
-              style={{
-                background: 'var(--apple-pink)',
-                color: '#fff',
-                fontSize: '0.65rem',
-                fontWeight: 'bold',
-                borderRadius: '10px',
-                padding: '0.05rem 0.35rem',
-                marginLeft: '0.15rem'
-              }}
-            >
-              {requestCount}
-            </span>
-          )}
+          <UploadCloud size={15} />
+          <span className="btn-request-label">Upload PDF</span>
         </button>
 
         <div className="repo-badge-chip">
@@ -85,3 +60,5 @@ export default function Header({ search, onSearchChange, onOpenRequestModal, onO
     </header>
   )
 }
+
+
