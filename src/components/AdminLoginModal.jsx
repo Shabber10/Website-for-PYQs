@@ -36,7 +36,7 @@ export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }) {
   }
 
   return (
-    <div className="pdf-modal-overlay" onClick={onClose}>
+    <div className="pdf-modal-overlay" style={{ zIndex: 2000 }} onClick={onClose}>
       <div className="request-modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
         <div className="pdf-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>

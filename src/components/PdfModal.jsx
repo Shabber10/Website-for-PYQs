@@ -25,7 +25,7 @@ export default function PdfModal({ paper, onClose }) {
   const pdfUrl = getCleanPdfUrl()
 
   return (
-    <div className="pdf-modal-overlay" onClick={onClose}>
+    <div className="pdf-modal-overlay" style={{ zIndex: 3000 }} onClick={onClose}>
       <div className="pdf-modal-container" onClick={(e) => e.stopPropagation()}>
         <div className="pdf-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
