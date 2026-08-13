@@ -8,14 +8,16 @@ import dns from 'dns'
 import pdfRoutes from './routes/pdfRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 
-// Fix Node.js DNS querySrv ETIMEOUT issue on Windows local networks
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1'])
-} catch (dnsErr) {
-  console.warn('DNS setServers warning:', dnsErr.message)
-}
-
 dotenv.config()
+
+// Fix Node.js DNS querySrv ETIMEOUT issue on local networks/Windows (skip in production to avoid cloud DNS conflicts)
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    dns.setServers(['8.8.8.8', '1.1.1.1'])
+  } catch (dnsErr) {
+    console.warn('DNS setServers warning:', dnsErr.message)
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -36,10 +38,12 @@ app.use('/api/admin', adminRoutes)
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState
   const states = { 0: 'Disconnected', 1: 'Connected', 2: 'Connecting', 3: 'Disconnecting' }
-  res.json({
+  const isConnected = dbState === 1
+  res.status(isConnected ? 200 : 503).json({
     status: 'UP',
     timestamp: new Date(),
-    database: states[dbState] || 'Unknown'
+    database: states[dbState] || 'Unknown',
+    hasCustomMongoUri: !!process.env.MONGODB_URI
   })
 })
 
@@ -65,24 +69,33 @@ app.listen(PORT, () => {
 // MongoDB Connection with Auto-Retry
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pyq_portal'
 
+if (!process.env.MONGODB_URI) {
+  console.warn('⚠️ WARNING: MONGODB_URI environment variable is not set!')
+}
+
 const connectWithRetry = () => {
-  console.log('Connecting to MongoDB Atlas database...')
+  console.log(`Connecting to MongoDB... (${MONGODB_URI.startsWith('mongodb+srv://') ? 'Atlas Cloud' : 'Local'})`)
+  
+  const connectOptions = {
+    serverSelectionTimeoutMS: 10000
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    connectOptions.family = 4
+  }
+
   mongoose
-    .connect(MONGODB_URI, {
-      family: 4,
-      serverSelectionTimeoutMS: 8000,
-      tls: true,
-      tlsAllowInvalidCertificates: true
-    })
+    .connect(MONGODB_URI, connectOptions)
     .then(() => {
-      console.log('✅ Connected to MongoDB Atlas successfully!')
+      console.log('✅ Connected to MongoDB successfully!')
     })
     .catch((err) => {
-      console.error('❌ MongoDB Atlas connection error:', err.message)
-      console.log('🔄 Retrying MongoDB Atlas connection in 5 seconds...')
+      console.error('❌ MongoDB connection error:', err.message)
+      console.log('🔄 Retrying MongoDB connection in 5 seconds...')
       setTimeout(connectWithRetry, 5000)
     })
 }
 
 connectWithRetry()
+
 
